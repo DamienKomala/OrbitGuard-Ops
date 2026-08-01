@@ -135,5 +135,16 @@ are installed and pinned in `skills-lock.json`. See [`.agents/README.md`](.agent
 
 ## Deploying
 
-`vercel.json` pins the framework to `nextjs`. Run `npx vercel` for a preview and
-`npx vercel --prod` to promote.
+Production: **https://orbitguard-ops.vercel.app**
+
+The Vercel project `rockwell76/orbitguard-ops` is connected to this repository,
+so pushes to `main` deploy to production automatically and every other branch or
+pull request gets its own preview URL. `vercel.json` pins the framework preset to
+`nextjs`.
+
+For a manual deploy, `npx vercel` builds a preview and `npx vercel --prod`
+promotes. A fresh clone needs `vercel link` first — `.vercel/` is gitignored, so
+the project association does not travel with the repo.
+
+Deployments are behind Vercel Authentication by team default; turn it off under
+Project → Settings → Deployment Protection to make the URLs public.
