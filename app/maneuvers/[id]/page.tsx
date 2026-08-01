@@ -14,6 +14,14 @@ import {
   formatUtc,
   offsetToMs,
 } from "@/lib/format";
+import {
+  bPlaneProjection,
+  burnDurationS,
+  burnResponse,
+  deltaVAvailableMs,
+  orbitFromAltitudes,
+  propellantForBurnKg,
+} from "@/lib/astro";
 import { BackLink, Page, RefLink } from "@/components/ui/Page";
 import { Field, Panel } from "@/components/ui/Panel";
 import { Table, Td, Th, Tr } from "@/components/ui/Table";
@@ -58,6 +66,47 @@ export default function ManeuverDetailPage() {
   const conjunction = conjunctionById(burn.conjunctionId);
   const plan = planFor(burn.conjunctionId);
   const past = burn.offsetHours < 0;
+
+  /*
+   * Orbit response to the burn, from Gauss's variational equations and the
+   * Clohessy-Wiltshire secular drift term. Lead time is burn to TCA — the
+   * quantity that actually buys miss distance, since an in-track burn separates
+   * the objects by letting a period change accumulate rather than by moving the
+   * spacecraft at the moment it fires.
+   */
+  const orbit = orbitFromAltitudes(craft.altitudeKm, craft.altitudeKm);
+  const leadHours = conjunction
+    ? conjunction.tcaOffsetHours - burn.offsetHours
+    : 0;
+  const response = burnResponse(
+    orbit,
+    burn.axis,
+    burn.deltaVMs,
+    Math.max(0, leadHours) * 3600
+  );
+  const bPlane = conjunction && plan
+    ? bPlaneProjection(
+        response.alongTrackDriftKm,
+        conjunction.missDistanceKm,
+        plan.missDistanceAfterKm
+      )
+    : null;
+
+  const dryMassKg = craft.wetMassKg - craft.propellantCapacityKg;
+  const currentMassKg = dryMassKg + craft.propellantKg;
+  const modelPropellantKg = propellantForBurnKg(
+    currentMassKg,
+    burn.deltaVMs,
+    craft.ispS
+  );
+  const modelDurationS = burnDurationS(
+    currentMassKg,
+    burn.deltaVMs,
+    craft.thrustN
+  );
+  const usableKg = craft.propellantKg - craft.reserveKg;
+  const burnsRemaining = Math.floor(usableKg / Math.max(modelPropellantKg, 1e-9));
+  const deltaVRemaining = deltaVAvailableMs(currentMassKg, usableKg, craft.ispS);
 
   return (
     <Page
@@ -198,6 +247,157 @@ export default function ManeuverDetailPage() {
                 Already drawn down — the remaining figure above is post-burn.
               </p>
             ) : null}
+          </Panel>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+          <Panel
+            title="Orbit response"
+            meta="Gauss variational · Clohessy–Wiltshire"
+            bodyClassName="p-4"
+          >
+            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <Field
+                label="Δ semi-major axis"
+                value={
+                  response.deltaSemiMajorAxisKm === 0
+                    ? "0"
+                    : (response.deltaSemiMajorAxisKm * 1000).toFixed(1)
+                }
+                unit="m"
+              />
+              <Field
+                label="Δ period"
+                value={response.deltaPeriodS.toFixed(3)}
+                unit="s"
+              />
+              <Field
+                label={burn.axis === "cross-track" ? "Δ inclination" : "Δ eccentricity"}
+                value={
+                  burn.axis === "cross-track"
+                    ? response.deltaInclinationDeg.toExponential(1)
+                    : response.deltaEccentricity.toExponential(1)
+                }
+                unit={burn.axis === "cross-track" ? "deg" : undefined}
+              />
+            </div>
+
+            {burn.axis === "in-track" ? (
+              <div className="border-t border-line pt-4">
+                <div className="mb-3 grid grid-cols-2 gap-4">
+                  <Field
+                    label="Drift per orbit"
+                    value={response.driftPerOrbitKm.toFixed(3)}
+                    unit="km"
+                  />
+                  <Field
+                    label={`Along-track at TCA (${leadHours.toFixed(1)}h lead)`}
+                    value={response.alongTrackDriftKm.toFixed(2)}
+                    unit="km"
+                    tone="text-accent"
+                  />
+                </div>
+                <p className="text-11 text-fg-muted">
+                  An in-track burn separates by changing the orbital period, so
+                  displacement grows as{" "}
+                  <span className="font-mono text-fg">Δx = 3·Δv·t</span>. Lead
+                  time, not delta-v, is what buys miss distance — the same burn
+                  an hour later is worth proportionally less.
+                </p>
+              </div>
+            ) : (
+              <p className="border-t border-line pt-4 text-11 text-fg-muted">
+                {burn.axis === "cross-track"
+                  ? "A cross-track burn rotates the orbit plane rather than changing the period, so separation appears immediately at the burn point rather than accumulating."
+                  : "A radial burn changes eccentricity without changing the period to first order, so it produces no secular along-track drift."}
+              </p>
+            )}
+
+            {bPlane && bPlane.factor > 0 ? (
+              <div className="mt-4 border-t border-line pt-4">
+                <div className="mb-2 flex items-baseline justify-between">
+                  <span className="eyebrow">B-plane projection</span>
+                  <span className="font-mono text-13 text-fg">
+                    {(bPlane.factor * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <p className="text-11 text-fg-muted">
+                  Only the component of that displacement perpendicular to the{" "}
+                  <span className="font-mono text-fg">
+                    {conjunction?.relVelocityKmS.toFixed(2)} km/s
+                  </span>{" "}
+                  relative velocity lies in the encounter plane and changes miss
+                  distance; the rest changes arrival time. At{" "}
+                  <span className="font-mono text-fg">
+                    {bPlane.angleDeg.toFixed(1)}°
+                  </span>{" "}
+                  off the relative-velocity vector,{" "}
+                  <span className="font-mono text-fg">
+                    {response.alongTrackDriftKm.toFixed(1)} km
+                  </span>{" "}
+                  of drift becomes{" "}
+                  <span className="font-mono text-fg">
+                    {(plan
+                      ? plan.missDistanceAfterKm - conjunction!.missDistanceKm
+                      : 0
+                    ).toFixed(2)}{" "}
+                    km
+                  </span>{" "}
+                  of additional separation.
+                </p>
+              </div>
+            ) : null}
+          </Panel>
+
+          <Panel title="Propulsion" meta="Tsiolkovsky" bodyClassName="p-4">
+            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <Field label="Specific impulse" value={String(craft.ispS)} unit="s" />
+              <Field label="Thrust" value={craft.thrustN.toFixed(3)} unit="N" />
+              <Field
+                label="Vehicle mass"
+                value={currentMassKg.toFixed(1)}
+                unit="kg"
+              />
+              <Field
+                label="Propellant"
+                value={modelPropellantKg.toFixed(4)}
+                unit="kg"
+              />
+              <Field
+                label="Burn duration"
+                value={modelDurationS.toFixed(0)}
+                unit="s"
+              />
+              <Field
+                label="Mass fraction"
+                value={(modelPropellantKg / currentMassKg).toExponential(1)}
+              />
+            </div>
+
+            <dl className="space-y-2 border-t border-line pt-4 text-13">
+              <div className="flex justify-between gap-4">
+                <dt className="text-fg-dim">System</dt>
+                <dd className="text-right text-fg-muted">{craft.propulsion}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-fg-dim">Δv capability remaining</dt>
+                <dd className="text-right font-mono text-fg-muted">
+                  {deltaVRemaining.toFixed(1)} m/s
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-fg-dim">Avoidance burns of this size left</dt>
+                <dd className="text-right font-mono text-fg">
+                  {burnsRemaining.toLocaleString("en-US")}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="mt-4 text-11 text-fg-muted">
+              {craft.thrustN < 0.1
+                ? "Low-thrust system — the burn spans a meaningful fraction of an orbit, so it is modelled as finite rather than impulsive and the achieved delta-v is direction-averaged."
+                : "Burn is short relative to the orbital period, so the impulsive approximation used above holds."}
+            </p>
           </Panel>
         </div>
 

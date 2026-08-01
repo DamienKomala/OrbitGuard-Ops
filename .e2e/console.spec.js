@@ -15,6 +15,21 @@ const ROUTES = [
   '/settings',
 ];
 
+/**
+ * Open the command palette, tolerating the window between first paint and
+ * hydration. The keydown listener is attached by an effect, so a press that
+ * lands before React mounts is simply dropped — real behaviour, not a bug, but
+ * a race a test can lose on a cold bundle.
+ */
+async function openPalette(page) {
+  await expect(async () => {
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(
+      page.getByRole('dialog', { name: 'Command palette' })
+    ).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 20000 });
+}
+
 test.describe('console', () => {
   test('renders all three panes and the source strip', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1000 });
@@ -78,9 +93,7 @@ test.describe('navigation', () => {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto('/');
 
-    await page.keyboard.press('ControlOrMeta+k');
-    const dialog = page.getByRole('dialog', { name: 'Command palette' });
-    await expect(dialog).toBeVisible();
+    await openPalette(page);
 
     await page.getByLabel('Search').fill('Halcyon');
     await page.keyboard.press('Enter');
@@ -237,9 +250,9 @@ test.describe('command palette', () => {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto('/');
 
+    await openPalette(page);
     // No settle time between typing and Enter — this is the race that made the
     // palette navigate to the previous render's first result.
-    await page.keyboard.press('ControlOrMeta+k');
     await page.getByLabel('Search').fill('Halcyon');
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/fleet\/OG-5/);
@@ -250,7 +263,7 @@ test.describe('command palette', () => {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto('/');
 
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByLabel('Search').fill('CJ-44');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
@@ -262,7 +275,7 @@ test.describe('command palette', () => {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto('/');
 
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByLabel('Search').fill('LeoLabs');
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/sources\/leolabs/);

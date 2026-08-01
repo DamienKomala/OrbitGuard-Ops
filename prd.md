@@ -296,6 +296,46 @@ The prototype ships **static data only** — no API, no database, no network cal
 Replacing the static modules with a fetch layer is the intended next step; no
 component reads anything but typed data from `lib/data/`.
 
+## 7a. Models
+
+Everything the detail pages report about orbits, perturbations, and burns is
+computed in `lib/astro.ts` from published formulations rather than authored as a
+number. Inputs are the catalogued apsides, inclination, and the spacecraft's
+propulsion parameters; outputs are derived on render.
+
+| Model | Used for |
+|---|---|
+| Two-body geometry, vis-viva | Semi-major axis, eccentricity, period, mean motion, apsidal velocities |
+| J2 secular rates | Nodal regression Ω̇, apsidal rotation ω̇, sun-synchronous detection |
+| Gauss's variational equations | Δa, Δe, Δi produced by an impulsive burn in the RIC frame |
+| Clohessy–Wiltshire | Secular along-track drift, Δx = 3·Δv·t — why lead time buys miss distance |
+| B-plane projection | How much of that drift actually becomes separation rather than a timing shift |
+| Tsiolkovsky | Propellant per burn, Δv capability remaining, avoidance burns affordable |
+| Finite-burn timing | Burn duration t = m·Δv/F, and whether the impulsive approximation holds |
+| RCS-inferred mass, ballistic coefficient | Drag response, and why small debris carries the widest covariance |
+
+Constants are WGS-84: μ = 398600.4418 km³/s², R⊕ = 6378.137 km, J2 =
+1.08262668×10⁻³, g₀ = 9.80665 m/s².
+
+Two consequences are load-bearing for the product. First, an in-track burn does
+not move the spacecraft when it fires — it changes the period, and separation
+accumulates linearly, so **lead time is worth more than delta-v** and the
+decision deadline is the real constraint. Second, only the component of that
+displacement perpendicular to the relative velocity lies in the encounter plane;
+for a near-head-on conjunction most of a large along-track drift changes arrival
+time rather than miss distance.
+
+Every value returned by `lib/astro.ts` is quantised before it leaves the module.
+`Math.sqrt`/`log`/`exp`/`cos` are only implementation-precise, so an unrounded
+result can differ between Node and the browser in its last bits — enough to cause
+a hydration mismatch once rendered as text.
+
+Screening configuration in Settings exposes the standard choices: Pc formulation
+(Foster 2-D, Chan, Alfano 2005, Monte Carlo), hard-body radius policy, covariance
+scaling, dilution handling, propagation theory and force model (geopotential
+degree/order, NRLMSISE-00 / JB2008 / Harris-Priester, SRP, third-body), the RIC
+screening volume, and maneuver policy.
+
 ## 8. Out of scope for v0.1
 
 - Real CDM ingest, Space-Track or commercial provider integration.

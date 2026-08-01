@@ -13,6 +13,7 @@ import {
 } from "@/lib/format";
 import { useMissionClock } from "@/lib/mission-clock";
 import { BackLink, Page } from "@/components/ui/Page";
+import { encounterRegime } from "@/lib/astro";
 import { Field, Panel } from "@/components/ui/Panel";
 import { Table, Td, Th, Tr } from "@/components/ui/Table";
 import { Pc, StatusDot } from "@/components/ui/Readouts";
@@ -102,9 +103,69 @@ export default function SourceDetailPage() {
           </div>
         </Panel>
 
-        <Panel title="Character" bodyClassName="p-4">
-          <p className="max-w-[72ch] text-13 text-fg-muted">
+        <Panel
+          title="Observation and orbit determination"
+          meta={source.dataProduct}
+          bodyClassName="p-4"
+        >
+          <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Field
+              label="Fit span"
+              value={source.fitSpanHours.toFixed(0)}
+              unit="h"
+            />
+            <Field
+              label="1σ position"
+              value={source.positionSigmaM.toFixed(0)}
+              unit="m"
+              tone={
+                source.positionSigmaM > 300
+                  ? "text-caution"
+                  : source.positionSigmaM < 100
+                    ? "text-nominal"
+                    : undefined
+              }
+            />
+            <Field
+              label="Observations 24h"
+              value={source.observationsLast24h.toLocaleString("en-US")}
+            />
+            <Field
+              label="Obs per object"
+              value={(source.observationsLast24h / source.objectsTracked).toFixed(1)}
+            />
+          </div>
+
+          <dl className="space-y-2 border-t border-line pt-4 text-13">
+            <div className="flex justify-between gap-4">
+              <dt className="shrink-0 text-fg-dim">Measurement types</dt>
+              <dd className="text-right text-fg-muted">
+                {source.observationTypes.join(" · ")}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="shrink-0 text-fg-dim">Delivered product</dt>
+              <dd className="text-right font-mono text-fg-muted">
+                {source.dataProduct}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="mt-4 max-w-[76ch] text-13 text-fg-muted">
             {KIND_NOTE[source.kind]}
+          </p>
+
+          <p className="mt-3 max-w-[76ch] text-11 text-fg-muted">
+            {/* What the measurement set implies for the covariance the
+                screening pipeline receives. */}
+            {source.observationTypes.some((o) => o.includes("range-rate"))
+              ? "Range-rate observations constrain the along-track component directly, which is the axis that dominates conjunction covariance — this is the strongest orbit determination in the network."
+              : source.observationTypes.some((o) => o.includes("range"))
+                ? "Range and angles constrain radial position well but leave along-track error to be inferred from arc length, so the covariance ellipsoid stays elongated along the velocity vector."
+                : "Angles-only tracking leaves range unconstrained. The fit relies on arc curvature, so the along-track uncertainty is the largest term by an order of magnitude and stays that way until a ranging sensor tasks the object."}
+            {source.fitSpanHours < 48
+              ? " A short fit span compounds this — there is not enough arc to separate drag from geometry."
+              : ""}
           </p>
         </Panel>
 
@@ -171,6 +232,26 @@ export default function SourceDetailPage() {
               </tbody>
             </Table>
           )}
+
+          {events.length > 0 ? (
+            <p className="border-t border-line p-4 text-11 text-fg-muted">
+              {(() => {
+                const slowest = events.reduce((a, b) =>
+                  a.relVelocityKmS < b.relVelocityKmS ? a : b
+                );
+                const regime = encounterRegime(slowest.relVelocityKmS);
+                return (
+                  <>
+                    Slowest encounter sourced here is{" "}
+                    <span className="font-mono text-fg">
+                      {slowest.relVelocityKmS.toFixed(2)} km/s
+                    </span>{" "}
+                    ({regime.label}). {regime.note}
+                  </>
+                );
+              })()}
+            </p>
+          ) : null}
         </Panel>
       </div>
     </Page>

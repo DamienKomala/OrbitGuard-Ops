@@ -69,9 +69,21 @@ export type Spacecraft = {
   propellantCapacityKg: number;
   /** Propellant that must survive to end of mission — burns may not cross it. */
   reserveKg: number;
+  /** Derived from Tsiolkovsky over the usable propellant. */
   deltaVRemainingMs: number;
   /** Station-keeping draw, kg per year, for runway math. */
   annualStationKeepingKg: number;
+
+  // --- propulsion, the inputs Tsiolkovsky and finite-burn timing need ---
+  propulsion: string;
+  /** Fully-fuelled mass, kg. Dry mass is this minus propellant capacity. */
+  wetMassKg: number;
+  /** Specific impulse, s. */
+  ispS: number;
+  /** Total usable thrust, N. Sets how long a given delta-v takes to apply. */
+  thrustN: number;
+  /** Circumscribing radius, m — the primary's half of the hard-body radius. */
+  radiusM: number;
 
   status: Severity;
 };
@@ -143,6 +155,16 @@ export type TrackingSource = {
   objectsTracked: number;
   observationsLast24h: number;
   coverage: string;
+
+  // --- observation and orbit-determination model ---
+  /** Measurement types the sensor delivers. */
+  observationTypes: string[];
+  /** Span of observations the orbit fit spans, hours. */
+  fitSpanHours: number;
+  /** 1-sigma position accuracy at epoch, m. */
+  positionSigmaM: number;
+  /** Delivered product format. */
+  dataProduct: string;
 };
 
 export type CatalogObject = {
@@ -156,4 +178,14 @@ export type CatalogObject = {
   /** Active conjunctions this object contributes to. */
   activeConjunctions: number;
   origin: string;
+
+  // --- orbit determination state ---
+  /** Propagation theory the state vector comes from. */
+  propagator: "SGP4" | "SP";
+  /** Hours since the epoch of the current state vector. */
+  epochAgeHours: number;
+  /** Length of the observation arc the fit used, days. */
+  observationArcDays: number;
+  /** Covariance delivered with the state, if any. */
+  covariance: "full 6x6" | "position only" | "none";
 };

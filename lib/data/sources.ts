@@ -10,6 +10,10 @@ export const SOURCES: TrackingSource[] = [
     objectsTracked: 47214,
     observationsLast24h: 1240000,
     coverage: "Global SSN",
+    observationTypes: ["range", "azimuth", "elevation"],
+    fitSpanHours: 72,
+    positionSigmaM: 250,
+    dataProduct: "CCSDS CDM + TLE (GP)",
   },
   {
     id: "leolabs",
@@ -20,6 +24,10 @@ export const SOURCES: TrackingSource[] = [
     objectsTracked: 21860,
     observationsLast24h: 486000,
     coverage: "LEO 200–2000 km",
+    observationTypes: ["range", "range-rate", "azimuth", "elevation"],
+    fitSpanHours: 48,
+    positionSigmaM: 65,
+    dataProduct: "CCSDS CDM + SP ephemeris (OEM)",
   },
   {
     id: "comspoc",
@@ -30,6 +38,10 @@ export const SOURCES: TrackingSource[] = [
     objectsTracked: 28450,
     observationsLast24h: 610000,
     coverage: "Fused multi-source",
+    observationTypes: ["fused range", "angles", "operator ephemeris"],
+    fitSpanHours: 96,
+    positionSigmaM: 90,
+    dataProduct: "CCSDS CDM + OEM",
   },
   {
     id: "slingshot",
@@ -40,6 +52,10 @@ export const SOURCES: TrackingSource[] = [
     objectsTracked: 9412,
     observationsLast24h: 118000,
     coverage: "GEO + LEO twilight",
+    observationTypes: ["right ascension", "declination"],
+    fitSpanHours: 36,
+    positionSigmaM: 480,
+    dataProduct: "CCSDS CDM",
   },
   {
     id: "esa-sst",
@@ -50,6 +66,10 @@ export const SOURCES: TrackingSource[] = [
     objectsTracked: 6108,
     observationsLast24h: 42000,
     coverage: "European sensor network",
+    observationTypes: ["range", "azimuth", "elevation"],
+    fitSpanHours: 60,
+    positionSigmaM: 310,
+    dataProduct: "CCSDS CDM",
   },
   {
     id: "onboard",
@@ -60,6 +80,10 @@ export const SOURCES: TrackingSource[] = [
     objectsTracked: 6,
     observationsLast24h: 8640,
     coverage: "OrbitGuard fleet ephemeris",
+    observationTypes: ["GNSS pseudorange", "carrier phase"],
+    fitSpanHours: 24,
+    positionSigmaM: 8,
+    dataProduct: "CCSDS OEM (operator ephemeris)",
   },
 ];
 

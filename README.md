@@ -37,7 +37,7 @@ app/
   maneuvers/                Burn log, and [id] per-burn detail
   catalog/                  Object catalog, and [norad] per-object detail
   sources/                  Network health, and [id] per-network detail
-  settings/                 Thresholds and lead times
+  settings/                 Screening, Pc, propagation, and maneuver policy
   not-found.tsx             Styled 404 for unresolved record IDs
 components/
   shell/                    Icon rail, status strip, command palette, app shell
@@ -45,6 +45,7 @@ components/
   ui/                       Panel, Field, Table, BudgetBar, readouts
 lib/
   data/                     All static scenario data (see below)
+  astro.ts                  Standard astrodynamics models (see below)
   format.ts                 Pc math, severity, countdown and unit formatting
   mission-clock.tsx         Ticking clock anchored to the scenario epoch
 ```
@@ -66,6 +67,24 @@ so does the client's first render, so hydration matches to the millisecond.
 
 Swapping these modules for a fetch layer is the intended next step — no
 component reads anything but typed data from `lib/data/`.
+
+## Models
+
+`lib/astro.ts` computes everything the detail pages report about orbits and
+burns from published formulations — two-body geometry and vis-viva, J2 secular
+rates (including sun-synchronous detection), Gauss's variational equations for
+an impulsive burn, Clohessy–Wiltshire along-track drift, B-plane projection,
+Tsiolkovsky, and finite-burn timing. Constants are WGS-84.
+
+Nothing in those panels is an authored number; propellant masses and burn
+durations in `lib/data/` were themselves recomputed so the data agrees with the
+equations. `Δx = 3·Δv·t` is the one worth knowing: an in-track burn separates by
+changing the orbital period, so lead time buys miss distance and the decision
+deadline is the binding constraint.
+
+Every exported value is quantised inside the module — `Math.sqrt`/`log`/`exp`
+are only implementation-precise, and an unrounded result can differ between Node
+and the browser enough to cause a hydration mismatch.
 
 ## Cross-linking
 
