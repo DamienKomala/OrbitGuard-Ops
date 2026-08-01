@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Console surfaces
+ * ----------------
+ * Two material families, kept strictly apart:
+ *
+ *   Data surfaces  — flat fills, 1px #1F2933 borders, no blur, no gradient,
+ *                    no shadow. Anything a reader has to measure lives here:
+ *                    panels, tables, the timeline, confidence bands.
+ *
+ *   Chrome + overlays — glass. Translucent, backdrop-blurred, with a specular
+ *                    top edge. Used only for surfaces that float *over* data
+ *                    and are never read numerically: the rail, the status
+ *                    strip, menus, the command palette, chart tooltips.
+ *
+ * The separation is the point. Glass behind a probability readout would make
+ * the number's contrast depend on what happens to be scrolling underneath it.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --glass-tint: 20 26 33; /* #141A21 */
+  --glass-edge: 255 255 255;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-fg font-sans text-13 antialiased;
+  }
+
+  /* Every numeral in the product is monospaced and tabular, so a live
+     countdown never changes width between frames. */
+  .font-mono,
+  code,
+  kbd {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 1px solid theme("colors.accent");
+    outline-offset: 1px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: rgb(77 212 232 / 0.24);
+  }
+
+  /* Dense scrollbars — the console has several independently scrolling wells
+     and default macOS overlay bars hide the fact that content continues. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1f2933;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2c3846;
+  }
+}
+
+@layer components {
+  /*
+   * Glass — chrome level. The rail and the status strip. More opaque than an
+   * overlay because they are permanent and content scrolls beneath them all
+   * shift long.
+   */
+  .glass-chrome {
+    background: rgb(var(--glass-tint) / 0.72);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    /* Specular top edge — an inset highlight, not a drop shadow. Nothing in
+       this product casts a shadow onto anything else. */
+    box-shadow: inset 0 1px 0 0 rgb(var(--glass-edge) / 0.07);
+  }
+
+  /*
+   * Glass — overlay level. Menus, the command palette, chart tooltips.
+   * Thinner tint and a heavier blur so the material reads as lifted, with a
+   * hairline ring instead of a shadow to separate it from the canvas.
+   */
+  .glass-overlay {
+    background: rgb(var(--glass-tint) / 0.62);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    box-shadow:
+      inset 0 1px 0 0 rgb(var(--glass-edge) / 0.1),
+      0 0 0 1px rgb(var(--glass-edge) / 0.08);
+  }
+
+  /* Scrim behind a modal overlay. Blurs the console rather than dimming it,
+     so the operator keeps peripheral awareness of lane positions. */
+  .glass-scrim {
+    background: rgb(11 15 20 / 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .eyebrow {
+    @apply text-11 uppercase tracking-eyebrow text-fg-dim;
+  }
+
+  /* Leading status bar on a list row. 2px, full height, flush to the edge. */
+  .row-status {
+    @apply absolute inset-y-0 left-0 w-[2px];
+  }
+}
+
+@layer utilities {
+  /* Keeps chart strokes at their authored width regardless of viewBox scale. */
+  .stroke-fixed {
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
